@@ -5,16 +5,19 @@ require_relative 'bullet'
 require_relative 'explosion'
 require_relative 'credit'
 class SectorFive < Gosu::Window
+  #set constants
   WIDTH = 1200
   HEIGHT = 1000
   ENEMY_FREQUENCY = 0.05
   MAX_ENEMIES = 100
+  #opens the game window and starts the game
   def initialize
     super(WIDTH, HEIGHT)
     self.caption = 'Sector Five'
     @background_image = Gosu::Image.new('images/start_screen.png')
     @scene = :start
   end
+  #defines specific endings
   def initialize_end(fate)
   	case fate
   	when :count_reached
@@ -39,6 +42,8 @@ class SectorFive < Gosu::Window
   	end
   	@scene = :end
   end
+  #the commands necessary to move your ship and shoot, as well as
+  #enemy destruction and removal
   def update_game
     @player.turn_left if button_down?(Gosu::KbLeft)
     @player.turn_right if button_down?(Gosu::KbRight)
@@ -83,11 +88,13 @@ class SectorFive < Gosu::Window
     end
     initialize_end(:off_top) if @player.y < -@player.radius
   end
+  #command necessary to shoot in game
   def button_down_game(id)
       if id == Gosu::KbSpace
         @bullets.push Bullet.new(self, @player.x, @player.y, @player.angle)
       end
   end
+  #command to roll credits once the game is over, displaying player information
   def update_end
   	@credits.each do |credit|
   		credit.move
@@ -98,6 +105,7 @@ class SectorFive < Gosu::Window
   		end
   	end
   end
+  #controls which 'scene' in the game we are in
   def update
   	case @scene
   	when :game
@@ -106,6 +114,7 @@ class SectorFive < Gosu::Window
   		update_end
   	end
   end
+  #scene to start the game after title screen
   def initialize_game
   	@player = Player.new(self)
   	@enemies = []
@@ -115,9 +124,11 @@ class SectorFive < Gosu::Window
   	@enemies_appeared = 0
   	@enemies_destroyed = 0
   end
+  #prompt to start game from title screen
   def button_down_start(id)
   	initialize_game
   end
+  #prompt to close the game
   def button_down_end(id)
   	if id == Gosu::KbP
   		initialize_game
@@ -125,6 +136,7 @@ class SectorFive < Gosu::Window
   		close
   	end
   end
+  #controls which 'scene' in the game we are in
   def button_down(id)
   	case @scene
   	when :start
@@ -135,9 +147,11 @@ class SectorFive < Gosu::Window
   		button_down_end(id)
   	end
   end
+  #creates graphics for start
   def draw_start
   	@background_image.draw(0,0,0)
   end
+  #displays graphics used in game
   def draw_game
   	@player.draw
     @enemies.each do |enemy|
@@ -150,6 +164,7 @@ class SectorFive < Gosu::Window
       explosion.draw
     end
   end
+  #displays the ending
   def draw_end
   	clip_to(50,140,700,360) do
   		@credits.each do |credit|
@@ -162,6 +177,7 @@ class SectorFive < Gosu::Window
   	draw_line(0,500,Gosu::Color::RED,WIDTH,500,Gosu::Color::RED)
   	@message_font.draw(@bottom_message,180,540,1,1,1,Gosu::Color::AQUA)
   end
+  #defining draw used in other sections
   def draw
   	case @scene
   	when :start
@@ -174,5 +190,6 @@ class SectorFive < Gosu::Window
   end
 end
 
+#launches the game
 window = SectorFive.new
 window.show
