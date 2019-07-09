@@ -1,12 +1,12 @@
-class Enemy
-	SPEED = 4
-	attr_reader :x, :y, :radius
+class Debris
+	SPEED = 6
+	attr_reader :x, :y
 	def initialize(window)
-		@radius = 30
-		@x = rand(window.width - 2 * @radius) + @radius
-		@y = 0
-		@image = Gosu::Image.new('images/starship.png')
-		@window = window
+		@x = rand(window.width - 2)
+        @y = 0
+        @radius = 1
+        @image = Gosu::Image.new('images/debris.png')
+        @window = window
 	end
 
 	def move
@@ -14,10 +14,10 @@ class Enemy
 	end
 
 	def draw
-		@image.draw(@x - @radius, @y - @radius, 1)
-	end
-
-	def onscreen?
+		@image.draw(@x, @y, 1)
+    end
+    
+    def onscreen?
         right = @window.width + @radius
         left = -@radius
         top = -@radius
