@@ -9,6 +9,7 @@ require_relative 'debris'
 require_relative 'package'
 require_relative 'life'
 require_relative 'enemybullet'
+require_relative 'mothership'
 class SectorFive < Gosu::Window
   WIDTH = 1500
   HEIGHT = 1000
@@ -17,8 +18,10 @@ class SectorFive < Gosu::Window
   DEBRIS_FREQUENCY = 1
   PACKAGE_FREQUENCY = 0.0002
   LIFE_FREQUENCY = 0.00009
+  MOTHER_BULLET_FREQUENCY = 0.1
   MAX_ENEMIES = 50
   MAX_LIVES = 3
+  MOVE_MOTHER = 0.5
 
 #initialize
   def initialize
@@ -36,14 +39,13 @@ class SectorFive < Gosu::Window
     @file = File.open('highscore.txt').each do |line|
       @highscore = line.chomp
       @highscore = @highscore.to_i
-      puts @highscore
     end
     @file = File.open('highscore.txt', 'w')
 
   	case fate
     when :count_reached
-      @score = @enemies_destroyed * (@health + ((@lives - 1) * 100))
-  		@message = "You made it! You destroyed #{@enemies_destroyed} ships"
+      @score = (@enemies_destroyed * 100) + (@health * 100) + ((@lives - 1) * 100) + (@mothership_destroyed * 1000)
+  		@message1 = "You made it! You destroyed #{@enemies_destroyed} ships"
       @message2 = "and #{50 - @enemies_destroyed} reached the base."
       if @score > @highscore
         @highscore = @score
@@ -109,6 +111,11 @@ class SectorFive < Gosu::Window
         @enemyBullets.push EnemyBullet.new(self, enemy.x, enemy.y)
       end
     end
+    if rand < MOTHER_BULLET_FREQUENCY && @mothership.any? == true
+      @mothership.each do |mothership|
+        @enemyBullets.push EnemyBullet.new(self, mothership.x, mothership.y)
+      end
+    end
     @enemies.each do |enemy|
       enemy.move
     end
@@ -129,6 +136,40 @@ class SectorFive < Gosu::Window
     end
     @newlives.each do |life|
       life.move
+    end
+    @mothership.each do |mothership|
+      mothership.move_to_position if mothership.y < 300
+      if rand < MOVE_MOTHER
+        mothership.move_right
+      else
+        mothership.move_left
+      end
+      mothership.move
+    end
+    @mothership.each do |mothership|
+      @bullets.dup.each do |bullet|
+        distance = Gosu.distance(mothership.x, mothership.y, bullet.x, bullet.y)
+        if distance < mothership.radius + bullet.width
+          @bullets.delete bullet
+          @mothership_health = @mothership_health - 5
+        end
+      end
+    end
+    @mothership.each do |mothership|
+      @bombs.dup.each do |bomb|
+        distance = Gosu.distance(mothership.x, mothership.y, bomb.x, bomb.y)
+        if distance < mothership.radius + bomb.radius + 50
+          @bombs.delete bomb
+          @mothership_health = @mothership_health - 10
+        end
+      end
+    end
+    @mothership.each do |mothership|
+      if @mothership_health <= 0
+        @mothership.delete mothership
+        @explosions.push Explosion.new(self, mothership.x, mothership.y)
+        @mothership_destroyed += 1
+      end
     end
     @enemies.dup.each do |enemy|
       @bullets.dup.each do |bullet|
@@ -225,7 +266,11 @@ class SectorFive < Gosu::Window
     @newlives.dup.each do |life|
       @newlives.delete life unless life.onscreen?
     end  
-    initialize_end(:count_reached) if @enemies_appeared > MAX_ENEMIES
+    mothership_battle if @enemies_appeared > MAX_ENEMIES
+    if @mothership_health <= 0
+      initialize_end(:count_reached)
+    end
+    # initialize_end(:count_reached) if @enemies_appeared > MAX_ENEMIES
     @enemies.each do |enemy|
       @players.each do |player|
         distance = Gosu.distance(enemy.x, enemy.y, player.x, player.y)
@@ -244,6 +289,13 @@ class SectorFive < Gosu::Window
     end
   end
 #end update game
+
+def mothership_battle
+  if @mothership.any? == false
+    @mothership.push Mothership.new(self)
+  end
+end
+  
 
 #button down game
   def button_down_game(id)
@@ -296,10 +348,13 @@ class SectorFive < Gosu::Window
     @packages = []
     @explosions = []
     @newlives = []
+    @mothership = []
     @scene = :game
     @bombs_left = 5
   	@enemies_appeared = 0
     @enemies_destroyed = 0
+    @mothership_destroyed = 0
+    @mothership_health = 1000
     @score = 0
     @font = Gosu::Font.new(30)
   end
@@ -369,6 +424,9 @@ class SectorFive < Gosu::Window
     end
     @newlives.each do |life|
       life.draw
+    end
+    @mothership.each do |mothership|
+      mothership.draw
     end
     if @lives == 1
       @lives_icon = Gosu::Image.new('images/one_life.jpg')
