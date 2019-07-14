@@ -8,10 +8,12 @@ require_relative 'bomb'
 require_relative 'debris'
 require_relative 'package'
 require_relative 'life'
+require_relative 'enemybullet'
 class SectorFive < Gosu::Window
   WIDTH = 1500
   HEIGHT = 1000
   ENEMY_FREQUENCY = 0.01
+  BULLET_FREQUENCY = 0.008
   DEBRIS_FREQUENCY = 1
   PACKAGE_FREQUENCY = 0.0002
   LIFE_FREQUENCY = 0.00009
@@ -30,18 +32,40 @@ class SectorFive < Gosu::Window
 
 #initialize end
   def initialize_end(fate)
+
+    @file = File.open('highscore.txt').each do |line|
+      @highscore = line.chomp
+      @highscore = @highscore.to_i
+      puts @highscore
+    end
+    @file = File.open('highscore.txt', 'w')
+
   	case fate
-  	when :count_reached
+    when :count_reached
+      @score = @enemies_destroyed * (@health + ((@lives - 1) * 100))
   		@message = "You made it! You destroyed #{@enemies_destroyed} ships"
-  		@message2 = "and #{50 - @enemies_destroyed} reached the base."
-  	when :hit_by_enemy
+      @message2 = "and #{50 - @enemies_destroyed} reached the base."
+      if @score > @highscore
+        @highscore = @score
+        @message3 = "New High Score: #{@score}"
+        @file.write(@score)
+      else
+        @message3 = "Your score is: #{@score}"
+        @file.write(@highscore)
+      end
+    when :hit_by_enemy
+      @score = @enemies_destroyed * (@health + @lives)
   		@message = "You were struck by an enemy ship."
   		@message2 = "Before your ship was destroyed, "
-  		@message2 += "you took out #{@enemies_destroyed} enemy ships."
-  	when :off_top
-  		@message = "You got too close to the enemy mother ship."
-  		@message2 = "Before your ship was destroyed, "
-  		@message2 += "you took out #{@enemies_destroyed} enemy ships."
+      @message2 += "you took out #{@enemies_destroyed} enemy ships."
+      if @score > @highscore
+        @highscore = @score
+        @message3 = "New High Score: #{@score}"
+        @file.write(@score)
+      else
+        @message3 = "Your score is: #{@score}"
+        @file.write(@highscore)
+      end
     end
     
   	@bottom_message = "Press P to play again, or Q to quit."
@@ -49,7 +73,7 @@ class SectorFive < Gosu::Window
   	@credits = []
   	y = 700
   	File.open('credits.txt').each do |line|
-  		@credits.push(Credit.new(self,line.chomp,100,y))
+  		@credits.push(Credit.new(self, line.chomp,100,y))
   		y += 30
   	end
   	@scene = :end
@@ -80,6 +104,11 @@ class SectorFive < Gosu::Window
     if rand < LIFE_FREQUENCY
       @newlives.push Life.new(self)
     end
+    if rand < BULLET_FREQUENCY
+      @enemies.each do |enemy|
+        @enemyBullets.push EnemyBullet.new(self, enemy.x, enemy.y)
+      end
+    end
     @enemies.each do |enemy|
       enemy.move
     end
@@ -87,6 +116,9 @@ class SectorFive < Gosu::Window
       debris.move
     end
     @bullets.each do |bullet|
+      bullet.move
+    end
+    @enemyBullets.each do |bullet|
       bullet.move
     end
     @bombs.each do |bomb|
@@ -109,10 +141,36 @@ class SectorFive < Gosu::Window
         end
       end
     end
+    @enemyBullets.dup.each do |bullet|
+      @bombs.dup.each do |bomb|
+        distance = Gosu.distance(bullet.x, bullet.y, bomb.x, bomb.y)
+        if distance < bullet.radius + 5 + bomb.radius
+          @enemyBullets.delete bullet
+          @bombs.delete bomb
+          @explosions.push Explosion.new(self, bomb.x, bomb.y)
+        end
+      end
+    end
+    @players.each do |player|
+      @enemyBullets.dup.each do |bullet|
+        distance = Gosu.distance(player.x, player.y, bullet.x, bullet.y)
+        if distance < player.radius + bullet.radius
+          @enemyBullets.delete bullet
+          @health = @health - 20
+          if @health <= 0
+            @players.delete player
+            @explosions.push Explosion.new(self, player.x, player.y)
+            @lives = @lives - 1
+            @players.push Player.new(self)
+            @health = 100
+          end
+        end
+      end
+    end
     @enemies.dup.each do |enemy|
       @bombs.dup.each do |bomb|
         distance = Gosu.distance(enemy.x, enemy.y, bomb.x, bomb.y)
-        if distance < enemy.radius + bomb.radius + 100
+        if distance < enemy.radius + bomb.radius + 50
           @enemies.delete enemy
           @explosions.push Explosion.new(self, enemy.x, enemy.y)
           @explosions.push Explosion.new(self, bomb.x, bomb.y)
@@ -152,6 +210,9 @@ class SectorFive < Gosu::Window
     @bullets.dup.each do |bullet|
       @bullets.delete bullet unless bullet.onscreen?
     end
+    @enemyBullets.dup.each do |bullet|
+      @enemyBullets.delete bullet unless bullet.onscreen?
+    end
     @debris.dup.each do |debris|
       @debris.delete debris unless debris.onscreen?
     end
@@ -187,7 +248,7 @@ class SectorFive < Gosu::Window
 #button down game
   def button_down_game(id)
     @players.each do |player|
-      if id == Gosu::KbUp
+      if id == Gosu::KbUp || id == Gosu::KbSpace
         @bullets.push Bullet.new(self, player.x + 8, player.y)
       end
       if id == Gosu::KbDown && @bombs_left > 0
@@ -226,9 +287,11 @@ class SectorFive < Gosu::Window
   def initialize_game
     @players = []
     @lives = 1
+    @health = 100
     @enemies = []
     @debris = []
     @bullets = []
+    @enemyBullets = []
     @bombs = []
     @packages = []
     @explosions = []
@@ -237,6 +300,7 @@ class SectorFive < Gosu::Window
     @bombs_left = 5
   	@enemies_appeared = 0
     @enemies_destroyed = 0
+    @score = 0
     @font = Gosu::Font.new(30)
   end
 #end initalize game
@@ -294,6 +358,9 @@ class SectorFive < Gosu::Window
     @bullets.each do |bullet|
       bullet.draw
     end
+    @enemyBullets.each do |bullet|
+      bullet.draw
+    end
     @bombs.each do |bomb|
       bomb.draw
     end
@@ -311,6 +378,8 @@ class SectorFive < Gosu::Window
       @lives_icon = Gosu::Image.new('images/three_lives.jpg')
     end
     @lives_icon.draw(20, 20, 2)
+    #TODO: Replace font with image based health
+    @font.draw(@health, 20, 120, 2)
     @font.draw(@enemies_destroyed, 1400, 20, 2)
   end
 #end draw game
@@ -324,7 +393,8 @@ class SectorFive < Gosu::Window
   	end
   	draw_line(0,140,Gosu::Color::RED,WIDTH,140,Gosu::Color::RED)
   	@message_font.draw(@message,40,40,1,1,1,Gosu::Color::RED)
-  	@message_font.draw(@message2,40,75,1,1,1,Gosu::Color::RED)
+    @message_font.draw(@message2,40,75,1,1,1,Gosu::Color::RED)
+    @message_font.draw(@message3,40,110,1,1,1,Gosu::Color::RED)
   	draw_line(0,500,Gosu::Color::RED,WIDTH,500,Gosu::Color::RED)
   	@message_font.draw(@bottom_message,180,540,1,1,1,Gosu::Color::RED)
   end

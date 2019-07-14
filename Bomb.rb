@@ -33,5 +33,4 @@ class Bomb
       end
     
     
-end
-    
+    end
