@@ -10,6 +10,7 @@ require_relative 'package'
 require_relative 'life'
 require_relative 'enemybullet'
 require_relative 'mothership'
+require_relative 'mothershipbullet'
 class SectorFive < Gosu::Window
   WIDTH = 1500
   HEIGHT = 1000
@@ -18,7 +19,7 @@ class SectorFive < Gosu::Window
   DEBRIS_FREQUENCY = 1
   PACKAGE_FREQUENCY = 0.0002
   LIFE_FREQUENCY = 0.00009
-  MOTHER_BULLET_FREQUENCY = 0.1
+  MOTHER_BULLET_FREQUENCY = 0.019
   MAX_ENEMIES = 50
   MAX_LIVES = 3
   MOVE_MOTHER = 0.5
@@ -44,9 +45,11 @@ class SectorFive < Gosu::Window
 
   	case fate
     when :count_reached
-      @score = (@enemies_destroyed * 100) + (@health * 100) + ((@lives - 1) * 100) + (@mothership_destroyed * 1000)
-  		@message1 = "You made it! You destroyed #{@enemies_destroyed} ships"
-      @message2 = "and #{50 - @enemies_destroyed} reached the base."
+      @score = (@enemies_destroyed * 100) + (@health * 100) + ((@lives - 1) * 100) + (@mothership_destroyed * 1000) - (((@mothership_enemies + @enemies_appeared) - @enemies_destroyed) * 10)
+      if @score < 0
+        @score = 0
+      end
+      @message = "You made it! You destroyed #{@enemies_destroyed} ships"
       if @score > @highscore
         @highscore = @score
         @message3 = "New High Score: #{@score}"
@@ -56,8 +59,11 @@ class SectorFive < Gosu::Window
         @file.write(@highscore)
       end
     when :hit_by_enemy
-      @score = @enemies_destroyed * (@health + @lives)
-  		@message = "You were struck by an enemy ship."
+      @score = (@enemies_destroyed * 100) + (@health * 100) + ((@lives - 1) * 100) + (@mothership_destroyed * 1000) - (((@mothership_enemies + @enemies_appeared) - @enemies_destroyed) * 10)
+      if @score < 0
+        @score = 0
+      end
+      @message = "You were struck by an enemy ship."
   		@message2 = "Before your ship was destroyed, "
       @message2 += "you took out #{@enemies_destroyed} enemy ships."
       if @score > @highscore
@@ -113,7 +119,13 @@ class SectorFive < Gosu::Window
     end
     if rand < MOTHER_BULLET_FREQUENCY && @mothership.any? == true
       @mothership.each do |mothership|
-        @enemyBullets.push EnemyBullet.new(self, mothership.x, mothership.y)
+        @mothershipBullets.push MothershipBullet.new(self, mothership.x, mothership.y)
+        @mothership_enemies += 1
+      end
+    end
+    if rand < BULLET_FREQUENCY && @mothershipBullets.any? == true
+      @mothershipBullets.each do |bullet|
+        @enemyBullets.push EnemyBullet.new(self, bullet.x, bullet.y)
       end
     end
     @enemies.each do |enemy|
@@ -126,6 +138,9 @@ class SectorFive < Gosu::Window
       bullet.move
     end
     @enemyBullets.each do |bullet|
+      bullet.move
+    end
+    @mothershipBullets.each do |bullet|
       bullet.move
     end
     @bombs.each do |bomb|
@@ -146,12 +161,24 @@ class SectorFive < Gosu::Window
       end
       mothership.move
     end
+    @mothershipBullets.dup.each do |mothership|
+      @bullets.dup.each do |bullet|
+        distance = Gosu.distance(bullet.x, bullet.y, mothership.x, mothership.y)
+        if distance < mothership.radius + bullet.width
+          @bullets.delete bullet
+          @mothershipBullets.delete mothership
+          @explosions.push Explosion.new(self, mothership.x, mothership.y)
+          @enemies_destroyed += 1
+        end
+      end
+    end
     @mothership.each do |mothership|
       @bullets.dup.each do |bullet|
         distance = Gosu.distance(mothership.x, mothership.y, bullet.x, bullet.y)
         if distance < mothership.radius + bullet.width
           @bullets.delete bullet
           @mothership_health = @mothership_health - 5
+          @explosions.push Explosion.new(self, mothership.x, mothership.y)
         end
       end
     end
@@ -161,6 +188,7 @@ class SectorFive < Gosu::Window
         if distance < mothership.radius + bomb.radius + 50
           @bombs.delete bomb
           @mothership_health = @mothership_health - 10
+          @explosions.push Explosion.new(self, mothership.x, mothership.y)
         end
       end
     end
@@ -192,6 +220,15 @@ class SectorFive < Gosu::Window
         end
       end
     end
+    @mothershipBullets.dup.each do |bullet|
+      @bombs.dup.each do |bomb|
+        distance = Gosu.distance(bullet.x, bullet.y, bomb.x, bomb.y)
+        if distance < bullet.radius + 5 + bomb.radius
+          @mothershipBullets.delete bullet
+          @explosions.push Explosion.new(self, bomb.x, bomb.y)
+        end
+      end
+    end
     @players.each do |player|
       @enemyBullets.dup.each do |bullet|
         distance = Gosu.distance(player.x, player.y, bullet.x, bullet.y)
@@ -201,10 +238,30 @@ class SectorFive < Gosu::Window
           if @health <= 0
             @players.delete player
             @explosions.push Explosion.new(self, player.x, player.y)
-            @lives = @lives - 1
             @players.push Player.new(self)
             @health = 100
+            @lives = @lives - 1
           end
+          if @lives <= 0
+            @health = @health - @health
+            initialize_end(:hit_by_enemy)
+          end
+        end
+      end
+    end
+    @players.each do |player|
+      @mothershipBullets.dup.each do |bullet|
+        distance = Gosu.distance(player.x, player.y, bullet.x, bullet.y)
+        if distance < player.radius + bullet.radius
+          @mothershipBullets.delete bullet 
+          @players.delete player
+          @explosions.push Explosion.new(self, player.x, player.y)
+          @lives = @lives - 1
+          @players.push Player.new(self)
+          @health = 100
+        end
+        if @lives == 0
+          initialize_end(:hit_by_enemy)
         end
       end
     end
@@ -254,6 +311,9 @@ class SectorFive < Gosu::Window
     @enemyBullets.dup.each do |bullet|
       @enemyBullets.delete bullet unless bullet.onscreen?
     end
+    @mothershipBullets.dup.each do |bullet|
+      @mothershipBullets.delete bullet unless bullet.onscreen?
+    end
     @debris.dup.each do |debris|
       @debris.delete debris unless debris.onscreen?
     end
@@ -282,7 +342,8 @@ class SectorFive < Gosu::Window
           @explosions.push Explosion.new(self, player.x, player.y)
           @players.push Player.new(self)
         end
-        if @lives == 0
+        if @lives <= 0
+          @health = @health - @health
           initialize_end(:hit_by_enemy)
         end
       end
@@ -344,6 +405,7 @@ end
     @debris = []
     @bullets = []
     @enemyBullets = []
+    @mothershipBullets = []
     @bombs = []
     @packages = []
     @explosions = []
@@ -351,7 +413,8 @@ end
     @mothership = []
     @scene = :game
     @bombs_left = 5
-  	@enemies_appeared = 0
+    @enemies_appeared = 0
+    @mothership_enemies = 0
     @enemies_destroyed = 0
     @mothership_destroyed = 0
     @mothership_health = 1000
@@ -414,6 +477,9 @@ end
       bullet.draw
     end
     @enemyBullets.each do |bullet|
+      bullet.draw
+    end
+    @mothershipBullets.each do |bullet|
       bullet.draw
     end
     @bombs.each do |bomb|

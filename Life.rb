@@ -2,7 +2,7 @@ class Life
 	SPEED = 4
 	attr_reader :x, :y, :radius
     def initialize(window)
-        @radius = 20
+        @radius = 30
         @x = rand(window.width - 2 * @radius) + @radius
         @y = 0
         @image = Gosu::Image.new('images/life.png')
