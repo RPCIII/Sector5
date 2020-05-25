@@ -1,6 +1,12 @@
 Sector Five
 by Robert Crites
 
+Originally Made Through:
+Learn Game Programming with Ruby: Bring Your Ideas to Life with Gosu
+by Mark Sobkowicz
+
+Then edited into a game of my own
+
 
 
 
@@ -12,14 +18,6 @@ By Robert Crites
 
 Except the Title Screen
 
-
----Music---
-
-
-
-"Lost Frontier" Kevin MacLeod (incompetech.com)
-
-"Cephalopod" Kevin MacLeod (incompetech.com)
 
 
 Licensed under Creative Commons: By Attribution 3.0
@@ -34,12 +32,3 @@ Creative Commons: Attribution-ShareAlike 3.0
 
 http://creativecommons.org/licenses/by-sa/3.0/
 
-
-
----Sound Effects---
-
-
-
-Sound effects from freesound.org
-Licensed under 
-Creative Commons: Public Domain CC0

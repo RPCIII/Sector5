@@ -14,7 +14,7 @@ require_relative 'mothershipbullet'
 class SectorFive < Gosu::Window
   WIDTH = 1500
   HEIGHT = 1000
-  ENEMY_FREQUENCY = 0.01
+  ENEMY_FREQUENCY = 0.04
   BULLET_FREQUENCY = 0.008
   DEBRIS_FREQUENCY = 1
   PACKAGE_FREQUENCY = 0.0002
